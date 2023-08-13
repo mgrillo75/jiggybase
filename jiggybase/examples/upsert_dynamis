@@ -1,0 +1,53 @@
+import os
+import json
+import win32com.client
+import jiggybase
+from jiggybase.models import Document, DocumentMetadata, Source
+import uuid
+import warnings
+
+# Set up the JiggyBase client
+os.environ['JIGGYBASE_API_KEY'] = 'jgy-JzMNhVesyWAiuaLnuTwuoDaAgQQHOsoWmlZZAEFSCt'
+jb = jiggybase.JiggyBase()
+warnings.simplefilter('ignore', category=UserWarning)
+
+# Select the collection
+collection = jb.collection('Dynamis')
+
+# Create an instance of the Outlook application
+outlook = win32com.client.Dispatch("Outlook.Application")
+namespace = outlook.GetNamespace("MAPI")
+customers_folder = namespace.Folders["miguel.grillo@awc-inc.com"].Folders.Item("Customers")
+
+# Access the Dynamis subfolder
+dynamis_folder = customers_folder.Folders.Item("Dynamis")
+messages = list(dynamis_folder.Items)  # Convert the messages object to a list
+messages.sort(key=lambda x: x.ReceivedTime, reverse=True)  # Sort messages by received time in descending order
+messages = messages[:10]  # Get the 10 most recent messages
+
+documents_to_upload = []
+
+# Iterate through the messages and create Document objects
+for message in messages:
+    # Get the 'To' and 'CC' email addresses
+    to_addresses = [recipient.Address for recipient in message.Recipients if recipient.Type == 1]  # Type 1 is 'To'
+    cc_addresses = [recipient.Address for recipient in message.Recipients if recipient.Type == 2]  # Type 2 is 'CC'
+
+    email_metadata = DocumentMetadata(
+        language="en",
+        source=Source.email,
+        created_at=message.ReceivedTime.strftime("%Y-%m-%dT%H:%M:%S"), # Using ISO 8601 format
+        author=message.SenderName,
+        title=message.Subject,
+        description=json.dumps({"to": to_addresses, "cc": cc_addresses})
+    )
+    email_document = Document(
+        id=str(uuid.uuid4()), # Generating a unique ID using UUID
+        text=json.dumps(message.Body), # Use json.dumps to properly escape the email text
+        metadata=email_metadata
+    )
+    documents_to_upload.append(email_document)
+
+# Upsert the documents into the specified collection
+upsert_response = collection.upsert(documents=documents_to_upload)
+print(upsert_response)
