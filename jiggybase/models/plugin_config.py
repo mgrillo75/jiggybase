@@ -1,6 +1,6 @@
 import os
 from pydantic import BaseModel, HttpUrl, Field, validator
-from typing import List, Optional
+from typing import List, Optional, Literal
 from enum import Enum
 from .plugin import PluginAuthType        
 import re
@@ -53,7 +53,7 @@ class OpenAIPluginAuthConfigOAuth(BaseModel):
     """
     The Plugin Oauth configuration as it is presented in the ai-plugin.json 
     """
-    type:                       str         = Field("oauth", const=True)
+    type:                       str         = Literal["oauth"]
     client_url:                 HttpUrl     = Field(description="ChatGPT will direct the user’s browser to this url to log in to the plugin")
     authorization_url:          HttpUrl     = Field(description="After successful login ChatGPT will complete the OAuth flow by making a POST request to this URL")
     scope:                      str         = Field(description="The scope used for the OAuth flow")    
